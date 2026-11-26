@@ -1,0 +1,48 @@
+name: build-iso
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-iso-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  iso:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      # make iso builds the ps2os-builder image and runs live-build inside it
+      # (privileged container; debootstrap needs mounts).
+      - name: Build ISO
+        run: make iso
+
+      - name: Show ISO
+        run: |
+          test -s out/ps2os.iso
+          ls -lh out/ps2os.iso
+          sha256sum out/ps2os.iso
+
+      - name: Upload ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: ps2os-iso
+          path: out/ps2os.iso
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: out/build.log
+          retention-days: 7
+          if-no-files-found: ignore

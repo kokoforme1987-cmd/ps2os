@@ -1,0 +1,23 @@
+#!/bin/sh
+# live-build configuration for ps2os. Invoked by `lb config`.
+# Phase 0: BIOS-bootable hybrid ISO on plain Debian bookworm, nothing extra.
+set -e
+
+lb config noauto \
+    --mode debian \
+    --distribution bookworm \
+    --architectures amd64 \
+    --linux-flavours amd64 \
+    --archive-areas main \
+    --binary-images iso-hybrid \
+    --bootloaders syslinux \
+    --debian-installer none \
+    --firmware-chroot false \
+    --firmware-binary false \
+    --memtest none \
+    --win32-loader false \
+    --iso-application ps2os \
+    --iso-publisher "ps2os; https://github.com/kokoforme1987-cmd/ps2os" \
+    --iso-volume PS2OS \
+    --bootappend-live "boot=live components quiet" \
+    "${@}"

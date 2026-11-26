@@ -1,0 +1,5 @@
+out/
+*.iso
+*.img
+build/
+node_modules/
