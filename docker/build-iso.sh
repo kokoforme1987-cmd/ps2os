@@ -30,18 +30,26 @@ cd "$WORK"
 lb config
 lb build 2>&1 | tee "$OUT/build.log"
 
-iso="$(find "$WORK" -maxdepth 1 -name '*.iso' | head -n 1)"
-if [ -z "$iso" ]; then
+# No `... | head` / `... | grep -q` anywhere below: with pipefail, a reader that exits
+# early SIGPIPEs its producer and the pipeline returns 141 even though everything
+# worked (this failed CI once, see D-010). Use globs and files instead of pipes.
+isos=("$WORK"/*.iso)
+if [ ! -e "${isos[0]}" ]; then
   echo "live-build finished but produced no .iso" >&2
   exit 1
 fi
-cp -f "$iso" "$OUT/ps2os.iso"
+cp -f "${isos[0]}" "$OUT/ps2os.iso"
 
 # Smoke test: the ISO must contain the live squashfs and the shell page.
-xorriso -indev "$OUT/ps2os.iso" -find /live -name 'filesystem.squashfs' 2>/dev/null \
-  | grep -q 'filesystem.squashfs'
-unsquashfs -l "$WORK/binary/live/filesystem.squashfs" 2>/dev/null \
-  | grep -q 'opt/shell/index.html'
+xorriso -indev "$OUT/ps2os.iso" -find /live -name 'filesystem.squashfs' \
+  > "$WORK/iso.lst" 2>/dev/null \
+  || { echo "smoke test: xorriso could not read $OUT/ps2os.iso" >&2; exit 1; }
+grep -q 'filesystem.squashfs' "$WORK/iso.lst" \
+  || { echo "smoke test: no /live/filesystem.squashfs in the ISO" >&2; exit 1; }
+unsquashfs -l "$WORK/binary/live/filesystem.squashfs" > "$WORK/squashfs.lst" \
+  || { echo "smoke test: unsquashfs could not list the squashfs" >&2; exit 1; }
+grep -q 'opt/shell/index.html' "$WORK/squashfs.lst" \
+  || { echo "smoke test: /opt/shell/index.html is not in the image" >&2; exit 1; }
 
 # Hand ownership back to the host user (no-op on Docker Desktop for Windows).
 if [ -n "${HOST_UID:-}" ]; then

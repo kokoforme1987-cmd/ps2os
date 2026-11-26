@@ -24,6 +24,10 @@ help:
 setup:
 	docker build -t $(IMAGE) docker
 
+# This recipe has no pipe on purpose. A `| grep -q` or `| head` under pipefail exits 141
+# (SIGPIPE) when the reader quits early; that hit CI once, in docker/build-iso.sh (D-010
+# in docs/DECISIONS.md). If a pipeline is ever needed here, add
+# SHELL := /bin/bash and .SHELLFLAGS := -o pipefail -c at the top and test it with `make iso`.
 iso: setup
 	docker run --rm --privileged \
 	  -v "$(CURDIR)":/work \

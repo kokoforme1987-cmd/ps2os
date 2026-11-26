@@ -73,3 +73,17 @@ from AGENTS.md and change only by a new entry here.
   Actions are pinned to major version 4.
 - Alternatives: only build on `main`; publish ISOs as releases.
 - Why: building every push catches breakage early. Releases are a P8 concern.
+
+## D-010 No early-exit readers in pipelines under pipefail
+- Decision: `docker/build-iso.sh` keeps `set -euo pipefail` but has no `| grep -q` and no
+  `| head`. The ISO is found with a glob, and the smoke test writes `xorriso` and
+  `unsquashfs -l` output to files and greps the files. The one pipe left, `lb build | tee`,
+  has a reader that consumes everything. The Makefile `iso` recipe stays pipe-free and says so
+  in a comment.
+- Alternatives: drop pipefail; append `|| true` to the pipelines; redirect `docker run` to
+  `out/build.log` in the Makefile; set `SHELL := /bin/bash` and `.SHELLFLAGS := -o pipefail -c`.
+- Why: the first CI run printed "Build completed successfully" and then exited 141. `grep -q`
+  quits at its first match, the producer gets SIGPIPE, and pipefail turns that into a failure.
+  Dropping pipefail or adding `|| true` would also hide a real `lb build` failure. A Makefile
+  redirect would empty the CI log, and `out/` does not exist yet when the shell opens the
+  redirect. The Makefile was not the source of the pipe.
